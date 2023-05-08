@@ -1,6 +1,10 @@
 # Databricks notebook source
 dbutils.widgets.text("Clean Room", "")
 dbutils.widgets.text("Station Name", "")
+dbutils.widgets.text("Notebook Collaborator", "")
+dbutils.widgets.text("Notebook Name", "")
+dbutils.widgets.text("Notebook Parameters", "")
+dbutils.widgets.text("Output Table Parameters", "")
 
 # COMMAND ----------
 
@@ -8,6 +12,7 @@ dbutils.widgets.text("Station Name", "")
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
+import json
 import os
 import requests
 import time
@@ -24,7 +29,7 @@ class TeardownResource(Enum):
 class CleanRoomRestClient:
   def __init__(self):
     self._workspace_url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().getOrElse(None)
-    self._auth_token = dbutils.secrets.get(scope="cleanroom", key="token")
+    self._auth_token = dbutils.secrets.get(scope="clean_room", key="token")
     self._headers = {"Authorization":"Bearer {}".format(self._auth_token), "Accept":"application/json" }
 
   def _get(self, url: str, **kwargs) -> requests.Response:
@@ -144,7 +149,7 @@ class CleanRoomRestClient:
   """
   Sets up station collaborator shares
   """
-  def setupStationCollaboratorShares(self, clean_room: str, station_name: str, output_tables: List[dict]) -> dict:
+  def setupStationCollaboratorShares(self, clean_room: str, station_name: str, output_tables: dict[str, str]) -> dict:
     return self._setupStationResource(
       clean_room,
       station_name,
@@ -185,7 +190,7 @@ class CleanRoomRestClient:
   """
   Runs station notebook with parameters
   """
-  def runStationNotebook(self, clean_room: str, station_name: str, base_parameters: List[dict]) -> dict:
+  def runStationNotebook(self, clean_room: str, station_name: str, base_parameters: dict[str, str]) -> dict:
     url = self._get_station_url(clean_room, station_name) + "/run-notebook"
     results = self._post(
       url,
@@ -263,7 +268,9 @@ class CleanRoomClient:
     self._station_name: str = station_name
     self._rest_client: CleanRoomClient = CleanRoomRestClient()
 
-  def prepareAndRunNotebook(self):
+  def prepareAndRunNotebook(
+      self, notebook_collaborator: str, notebook_name: str,
+      notebook_parameters: dict[str, str], output_table_parameters: dict[str, str]) -> tuple[dict, str]:
     print("Creating station")
     self._rest_client.createStation(self._clean_room, self._station_name)
 
@@ -271,7 +278,7 @@ class CleanRoomClient:
     print("Setting up station metastore")
     self._rest_client.setupStationMetastore(self._clean_room, self._station_name)
     print("Setting up station collaborator shares")
-    self._rest_client.setupStationCollaboratorShares(self._clean_room, self._station_name)
+    self._rest_client.setupStationCollaboratorShares(self._clean_room, self._station_name, output_table_parameters)
     print("Setting up station workspace")
     self._rest_client.setupStationWorkspace(self._clean_room, self._station_name)
     print("Waiting for workspace to be provisioned...")
@@ -285,11 +292,11 @@ class CleanRoomClient:
     print("Setting up station notebook service principal")
     self._rest_client.setupStationNotebookServicePrincipal(self._clean_room, self._station_name)
     print("Setting up station notebook")
-    self._rest_client.setupStationNotebook(self._clean_room, self._station_name)
+    self._rest_client.setupStationNotebook(self._clean_room, self._station_name, notebook_collaborator, notebook_name)
 
     # Run the clean room notebook
     print("Starting clean room notebook run")
-    self._rest_client.runStationNotebook(self._clean_room, self._station_name)
+    self._rest_client.runStationNotebook(self._clean_room, self._station_name, notebook_parameters)
     print("Waiting for clean room notebook to finish running...")
     state = None
     while True:
@@ -313,7 +320,7 @@ class CleanRoomClient:
     return (state, f"https://{dbutils.notebook.entry_point.getDbutils().notebook().getContext().browserHostName().get()}/#notebook/{notebook_status['object_id']}")
 
 
-  def teardownStation(self):
+  def teardownStation(self) -> None:
     print("Tearing down station notebook service principal")
     self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.NOTEBOOK_SERVICE_PRINCIPAL)
     print("Tearing down station workspace")
@@ -330,9 +337,15 @@ class CleanRoomClient:
 
 clean_room = dbutils.widgets.get("Clean Room")
 station_name = dbutils.widgets.get("Station Name")
-# If the clean room and station name are empty, there is nothing to tear down.
-if (clean_room and station_name):
+if dbutils.jobs.taskValues.get(taskKey="Step1", key="station_created", default=False):
   CleanRoomClient(clean_room, station_name).teardownStation()
+  notebook_url = dbutils.jobs.taskValues.get(taskKey="Step1", key="notebook_url", default="")
+  notebook_run_state = dbutils.jobs.taskValues.get(taskKey="Step1", key="notebook_run_state", default="")
+  if notebook_url and notebook_run_state:
+    displayHTML(f"<a href='{notebook_url}'>Notebook Results</a>")
+    if ("result_state" in notebook_run_state and notebook_run_state["result_state"] != "SUCCESS"):
+      print("Notebook run failed. Please inspect results.")
+
 
 # COMMAND ----------
 
