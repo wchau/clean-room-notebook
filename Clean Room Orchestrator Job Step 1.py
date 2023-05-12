@@ -317,11 +317,13 @@ class CleanRoomClient:
     # Export notebook results and import it into the user's workspace
     print("Exporting clean room notebook output")
     output = self._rest_client.exportStationNotebookOutput(self._clean_room, self._station_name)
+    content = output["views"][0]["content"]
+    content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
     output_folder = f"/Users/{dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()}"
     current_date = datetime.now()
     path = os.path.join(output_folder, f"clean_room_output_{current_date.isoformat()}")
     print("Saving clean room notebook output to " + path)
-    self._rest_client.importNotebook(path, output["views"][0]["content"])
+    self._rest_client.importNotebook(path, content_b64)
     notebook_status = self._rest_client.getNotebookStatus(path)
     return (state, f"https://{dbutils.notebook.entry_point.getDbutils().notebook().getContext().browserHostName().get()}/#notebook/{notebook_status['object_id']}")
 
