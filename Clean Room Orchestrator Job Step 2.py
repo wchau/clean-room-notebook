@@ -137,11 +137,8 @@ class CleanRoomRestClient:
   """
   def getStationWorkspaceStatus(self, clean_room: str, station_name: str) -> dict:
     url = self._get_station_url(clean_room, station_name) + "/get-workspace-status"
-    results = self._post(
-      url,
-      json={
-        "base_parameters": base_parameters
-      }
+    results = self._get(
+      url
     )
     results.raise_for_status()
     return results.json()
