@@ -326,9 +326,7 @@ class CleanRoomClient:
     print("Saving clean room notebook output to " + path)
     self._rest_client.importNotebook(path, content_b64)
     notebook_status = self._rest_client.getNotebookStatus(path)
-    browser_url = spark.conf.get("spark.databricks.workspaceUrl")
-    return (state, f"https://{browser_url}/#notebook/{notebook_status['object_id']}")
-
+    return (state, f"/#notebook/{notebook_status['object_id']}")
 
   def teardownStation(self) -> None:
     print("Tearing down station notebook service principal")
