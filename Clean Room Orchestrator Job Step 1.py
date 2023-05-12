@@ -233,12 +233,12 @@ class CleanRoomRestClient:
   Tears down station resource
   """
   def teardownStationResource(self, clean_room: str, station_name: str, resource: TeardownResource) -> dict:
-    print("Tearing down station resource: " + resource.value)
+    print("Tearing down station resource: " + resource.name)
     url = self._get_station_url(clean_room, station_name) + "/teardown-resource"
     results = self._post(
       url,
       json={
-        "resource": resource.value
+        "resource": resource.name
       }
     )
     self._check_results(results)

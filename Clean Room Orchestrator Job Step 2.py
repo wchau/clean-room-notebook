@@ -233,12 +233,12 @@ class CleanRoomRestClient:
   Tears down station resource
   """
   def teardownStationResource(self, clean_room: str, station_name: str, resource: TeardownResource) -> dict:
-    print("Tearing down station resource: " + resource.value)
+    print("Tearing down station resource: " + resource.name)
     url = self._get_station_url(clean_room, station_name) + "/teardown-resource"
     results = self._post(
       url,
       json={
-        "resource": resource.value
+        "resource": resource.name
       }
     )
     self._check_results(results)
@@ -328,13 +328,13 @@ class CleanRoomClient:
 
   def teardownStation(self) -> None:
     print("Tearing down station notebook service principal")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.NOTEBOOK_SERVICE_PRINCIPAL.value)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.NOTEBOOK_SERVICE_PRINCIPAL)
     print("Tearing down station workspace")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.WORKSPACE.value)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.WORKSPACE)
     print("Tearing down station collaborator shares")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.COLLABORATOR_SHARES.value)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.COLLABORATOR_SHARES)
     print("Tearing down station metastore")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.METASTORE.value)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.METASTORE)
     print("Deleting station")
     self._rest_client.deleteStation(self._clean_room, self._station_name)
     
