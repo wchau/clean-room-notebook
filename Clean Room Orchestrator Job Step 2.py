@@ -62,7 +62,7 @@ class CleanRoomRestClient:
       results.raise_for_status()
     except HTTPError as e:
       if results.text:
-        raise HTTPError(f"{str(e.message)} Body: {results.text}")
+        raise HTTPError(f"{str(e)} Body: {results.text}")
       raise e
 
   """
