@@ -355,8 +355,10 @@ output_table_parameters = parseParameters(dbutils.widgets.get("Output Table Para
 if (not clean_room or not station_name):
   raise RuntimeError("Clean Room and Station Name must be non-empty")
 
+# Also verifies that the secrets are properly set up
+client = CleanRoomClient(clean_room, station_name)
 dbutils.jobs.taskValues.set(key="station_created", value=True)
-state, notebook_url = CleanRoomClient(clean_room, station_name).prepareAndRunNotebook(
+state, notebook_url = client.prepareAndRunNotebook(
   notebook_collaborator, notebook_name, notebook_parameters, output_table_parameters)
 dbutils.jobs.taskValues.set(key="notebook_url", value=notebook_url)
 dbutils.jobs.taskValues.set(key="notebook_run_state", value=state)
