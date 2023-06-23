@@ -10,11 +10,12 @@ import requests
 import time
 import urllib
 
-class TeardownResource(Enum):
+class Resource(Enum):
   NOTEBOOK_SERVICE_PRINCIPAL = 1
   COLLABORATOR_SHARES = 2
   WORKSPACE = 3
   METASTORE = 4
+  NOTEBOOK = 5
 
 class CleanRoomRestClient:
   def __init__(self):
@@ -44,7 +45,7 @@ class CleanRoomRestClient:
     )
 
   def _get_station_url(self, clean_room: str, station_name: str) -> str:
-    return self._workspace_url + f"/api/2.1/unity-catalog/clean-rooms/{urllib.parse.quote(clean_room)}/stations/{urllib.parse.quote(station_name)}"
+    return self._workspace_url + f"/api/2.1/unity-catalog/clean-room-stations/{urllib.parse.quote(clean_room)}.{urllib.parse.quote(station_name)}"
 
   def _check_results(self, results) -> None:
     try:
@@ -87,48 +88,32 @@ class CleanRoomRestClient:
   Creates station
   """
   def createStation(self, clean_room: str, station_name: str) -> dict:
-    url = self._workspace_url + f"/api/2.1/unity-catalog/clean-rooms/{urllib.parse.quote(clean_room)}/stations"
+    url = self._workspace_url + f"/api/2.1/unity-catalog/clean-room-stations"
     results = self._post(
       url,
       json={
+        "clean_room": clean_room,
         "station_name": station_name
       }
     )
     self._check_results(results)
     return results.json()
 
-  def _setupStationResource(self, clean_room: str, station_name: str, json_body: dict) -> dict:
+  """
+  Sets up station resource
+  """
+  def setupStationResource(self, clean_room: str, station_name: str, resource: Resource) -> dict:
     url = self._get_station_url(clean_room, station_name) + "/setup-resource"
     results = self._post(
       url,
-      json=json_body
+      json={
+        "resource": {
+          "resource_type": resource.name
+        }
+      }
     )
     self._check_results(results)
     return results.json()
-
-  """
-  Sets up station metastore
-  """
-  def setupStationMetastore(self, clean_room: str, station_name: str) -> dict:
-    return self._setupStationResource(
-      clean_room,
-      station_name,
-      {
-        "metastore": {}
-      }
-    )
-
-  """
-  Sets up station workspace
-  """
-  def setupStationWorkspace(self, clean_room: str, station_name: str) -> dict:
-    return self._setupStationResource(
-      clean_room,
-      station_name,
-      {
-        "workspace": {}
-      }
-    )
 
   """
   Gets station workspace status
@@ -141,47 +126,6 @@ class CleanRoomRestClient:
     self._check_results(results)
     return results.json()
 
-  """
-  Sets up station collaborator shares
-  """
-  def setupStationCollaboratorShares(self, clean_room: str, station_name: str, output_tables: dict[str, str]) -> dict:
-    return self._setupStationResource(
-      clean_room,
-      station_name,
-      {
-        "collaborator_shares": {
-          "output_tables": output_tables
-        }
-      }
-    )
-
-  """
-  Sets up station notebook service principal
-  """
-  def setupStationNotebookServicePrincipal(self, clean_room: str, station_name: str) -> dict:
-    return self._setupStationResource(
-      clean_room,
-      station_name,
-      {
-        "notebook_service_principal": {}
-      }
-    )
-
-  """
-  Sets up station notebook
-  """
-  def setupStationNotebook(self, clean_room: str, station_name: str, notebook_collaborator: str, notebook_name: str) -> dict:
-    return self._setupStationResource(
-      clean_room,
-      station_name,
-      {
-        "notebook": {
-          "notebook_collaborator": notebook_collaborator,
-          "notebook_name": notebook_name
-        }
-      }
-    )
-  
   """
   Runs station notebook with parameters
   """
@@ -221,13 +165,14 @@ class CleanRoomRestClient:
   """
   Tears down station resource
   """
-  def teardownStationResource(self, clean_room: str, station_name: str, resource: TeardownResource) -> dict:
-    print("Tearing down station resource: " + resource.name)
+  def teardownStationResource(self, clean_room: str, station_name: str, resource: Resource) -> dict:
     url = self._get_station_url(clean_room, station_name) + "/teardown-resource"
     results = self._post(
       url,
       json={
-        "resource": resource.name
+        "resource": {
+          "resource_type": resource.name
+        }
       }
     )
     self._check_results(results)
@@ -237,7 +182,6 @@ class CleanRoomRestClient:
   Deletes the station
   """
   def deleteStation(self, clean_room: str, station_name: str) -> None:
-    print("Deleting station")
     url = self._get_station_url(clean_room, station_name)
     results = self._delete(
       url
@@ -248,9 +192,10 @@ class CleanRoomRestClient:
   Lists all stations
   """
   def listStations(self, clean_room: str) -> List[dict]:
-    url = self._workspace_url + f"/api/2.1/unity-catalog/clean-rooms/{urllib.parse.quote(clean_room)}/stations"
+    url = self._workspace_url + f"/api/2.1/unity-catalog/clean-room-stations"
     results = self._get(
-      url
+      url,
+      params = {"clean_room_name": clean_room}
     )
     self._check_results(results)
     return results.json()["stations"]
@@ -305,11 +250,11 @@ class CleanRoomClient:
 
     # Setup all resources
     print("Setting up station metastore")
-    self._rest_client.setupStationMetastore(self._clean_room, self._station_name)
+    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.METASTORE)
     print("Setting up station collaborator shares")
-    self._rest_client.setupStationCollaboratorShares(self._clean_room, self._station_name, output_table_parameters)
+    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.COLLABORATOR_SHARES)
     print("Setting up station workspace")
-    self._rest_client.setupStationWorkspace(self._clean_room, self._station_name)
+    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.WORKSPACE)
     print("Waiting for workspace to be provisioned...")
     while True:
       response = self._rest_client.getStationWorkspaceStatus(self._clean_room, self._station_name)
@@ -319,9 +264,9 @@ class CleanRoomClient:
         raise RuntimeError("Workspace could not be provisioned")
       time.sleep(10)
     print("Setting up station notebook service principal")
-    self._rest_client.setupStationNotebookServicePrincipal(self._clean_room, self._station_name)
+    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_SERVICE_PRINCIPAL)
     print("Setting up station notebook")
-    self._rest_client.setupStationNotebook(self._clean_room, self._station_name, notebook_collaborator, notebook_name)
+    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK)
 
     # Run the clean room notebook
     print("Starting clean room notebook run")
@@ -340,7 +285,7 @@ class CleanRoomClient:
     # Export notebook results and import it into the user's workspace
     print("Exporting clean room notebook output")
     output = self._rest_client.exportStationNotebookOutput(self._clean_room, self._station_name)
-    content = output["views"][0]["content"]
+    content = output["notebook_contents"]
     content_b64 = base64.b64encode(content.encode('utf-8')).decode('utf-8')
     output_folder = f"/Users/{dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()}"
     current_date = datetime.now()
@@ -362,12 +307,12 @@ class CleanRoomClient:
 
   def _teardownStationHelper(self) -> None:
     print("Tearing down station notebook service principal")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.NOTEBOOK_SERVICE_PRINCIPAL)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_SERVICE_PRINCIPAL)
     print("Tearing down station workspace")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.WORKSPACE)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.WORKSPACE)
     print("Tearing down station collaborator shares")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.COLLABORATOR_SHARES)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.COLLABORATOR_SHARES)
     print("Tearing down station metastore")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, TeardownResource.METASTORE)
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.METASTORE)
     print("Deleting station")
     self._rest_client.deleteStation(self._clean_room, self._station_name)
