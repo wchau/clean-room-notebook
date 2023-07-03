@@ -88,13 +88,22 @@ class CleanRoomRestClient:
   """
   Creates station
   """
-  def createStation(self, clean_room: str, station_name: str) -> dict:
+  def createStation(self, clean_room: str, station_name: str,
+                    notebook_collaborator: str, notebook_name: str,
+                    notebook_parameters: dict[str, str],
+                    table_output_parameters: dict[str, str]) -> dict:
     url = self._workspace_url + f"/api/2.1/unity-catalog/clean-room-stations"
     results = self._post(
       url,
       json={
         "clean_room": clean_room,
-        "station_name": station_name
+        "station_name": station_name,
+        "notebook": {
+          "notebook_collaborator": notebook_collaborator,
+          "notebook_name": notebook_name,
+          "notebook_base_parameters": json.dumps(notebook_parameters),
+          "notebook_output_table_parameters": json.dumps(table_output_parameters)
+        }
       }
     )
     self._check_results(results)
@@ -233,7 +242,13 @@ class CleanRoomClient:
       self, notebook_collaborator: str, notebook_name: str,
       notebook_parameters: dict[str, str], output_table_parameters: dict[str, str]) -> tuple[dict, str]:
     print("Creating station")
-    self._rest_client.createStation(self._clean_room, self._station_name)
+    self._rest_client.createStation(
+      self._clean_room,
+      self._station_name,
+      notebook_collaborator,
+      notebook_name,
+      notebook_parameters,
+      output_table_parameters)
 
     # Setup all resources
     print("Setting up station metastore")
