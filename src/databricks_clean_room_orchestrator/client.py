@@ -96,7 +96,7 @@ class CleanRoomRestClient:
     results = self._post(
       url,
       json={
-        "clean_room": clean_room,
+        "clean_room_name": clean_room,
         "station_name": station_name,
         "notebook": {
           "notebook_collaborator": notebook_collaborator,
