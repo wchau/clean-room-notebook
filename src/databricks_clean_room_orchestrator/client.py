@@ -101,8 +101,8 @@ class CleanRoomRestClient:
         "notebook": {
           "notebook_collaborator": notebook_collaborator,
           "notebook_name": notebook_name,
-          "notebook_base_parameters": json.dumps(notebook_parameters),
-          "notebook_output_table_parameters": json.dumps(table_output_parameters)
+          "notebook_base_parameters": notebook_parameters,
+          "notebook_output_table_parameters": table_output_parameters
         }
       }
     )
