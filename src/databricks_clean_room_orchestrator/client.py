@@ -16,6 +16,7 @@ class Resource(Enum):
   WORKSPACE = 3
   METASTORE = 4
   NOTEBOOK = 5
+  NOTEBOOK_JOB_RUN = 6
 
 class CleanRoomRestClient:
   def __init__(self):
@@ -122,20 +123,6 @@ class CleanRoomRestClient:
     url = self._get_station_url(clean_room, station_name) + "/get-workspace-status"
     results = self._get(
       url
-    )
-    self._check_results(results)
-    return results.json()
-
-  """
-  Runs station notebook with parameters
-  """
-  def runStationNotebook(self, clean_room: str, station_name: str, base_parameters: dict[str, str]) -> dict:
-    url = self._get_station_url(clean_room, station_name) + "/run-notebook"
-    results = self._post(
-      url,
-      json={
-        "base_parameters": base_parameters
-      }
     )
     self._check_results(results)
     return results.json()
@@ -269,8 +256,8 @@ class CleanRoomClient:
     self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK)
 
     # Run the clean room notebook
-    print("Starting clean room notebook run")
-    self._rest_client.runStationNotebook(self._clean_room, self._station_name, notebook_parameters)
+    print("Setting up station notebook job run")
+    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_JOB_RUN)
     print("Waiting for clean room notebook to finish running...")
     state = None
     while True:
@@ -306,6 +293,10 @@ class CleanRoomClient:
           print("Notebook run failed. Please inspect results.")
 
   def _teardownStationHelper(self) -> None:
+    print("Tearing down station notebook job run")
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_JOB_RUN)
+    print("Tearing down station notebook")
+    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK)
     print("Tearing down station notebook service principal")
     self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_SERVICE_PRINCIPAL)
     print("Tearing down station workspace")
