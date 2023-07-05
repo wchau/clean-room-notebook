@@ -333,12 +333,12 @@ class CleanRoomClient:
     self._rest_client.deleteStation(clean_room, station_name)
     print(f"Finished tearing down station {clean_room}.{station_name}")
 
-  def teardownAllStations(self, clean_room: str):
-    stations = self._rest_client.listStations(clean_room)
+  def teardownAllStations(self):
+    stations = self._rest_client.listStations(self._clean_room)
     print(f"Found {len(stations)} stations to tear down:")
     for station in stations:
       print(station["full_name"])
     print()
     for station in stations:
-      self._rest_client._teardownStationHelper(clean_room, station["name"])
+      self._rest_client._teardownStationHelper(self._clean_room, station["name"])
     print(f"Finished tearing down all stations")
