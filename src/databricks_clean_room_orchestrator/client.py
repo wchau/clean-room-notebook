@@ -340,5 +340,5 @@ class CleanRoomClient:
       print(station["full_name"])
     print()
     for station in stations:
-      self._rest_client._teardownStationHelper(self._clean_room, station["name"])
+      self._teardownStationHelper(self._clean_room, station["name"])
     print(f"Finished tearing down all stations")
