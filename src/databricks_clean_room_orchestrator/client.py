@@ -19,6 +19,10 @@ class Resource(Enum):
   NOTEBOOK_JOB_RUN = 6
 
 class CleanRoomRestClient:
+  _workspace_url: Optional[str]
+  _auth_token: str
+  _headers: dict[str, str]
+
   def __init__(self):
     self._workspace_url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().getOrElse(None)
     self._auth_token = dbutils.secrets.get(scope="clean_room", key="token")
@@ -194,15 +198,19 @@ class CleanRoomRestClient:
       params = {"clean_room_name": clean_room}
     )
     self._check_results(results)
-    return results.json()["stations"]
+    return results.json()["clean_room_stations"]
 
 class CleanRoomClient:
+  _clean_room: str
+  _station_name: str
+  _rest_client: CleanRoomRestClient
+
   def __init__(self):
     dbutils.widgets.text("Clean Room", "")
     dbutils.widgets.text("Station Name", "")
-    self._clean_room: str = dbutils.widgets.get("Clean Room")
-    self._station_name: str = dbutils.widgets.get("Station Name")
-    self._rest_client: CleanRoomClient = CleanRoomRestClient()
+    self._clean_room = dbutils.widgets.get("Clean Room")
+    self._station_name = dbutils.widgets.get("Station Name")
+    self._rest_client = CleanRoomRestClient()
 
   @classmethod
   def parseParameters(cls, parameters: str) -> dict[str, str]:
@@ -299,7 +307,7 @@ class CleanRoomClient:
 
   def teardownStation(self):
     if dbutils.jobs.taskValues.get(taskKey="Step1", key="station_created", default=False):
-      self._teardownStationHelper()
+      self._teardownStationHelper(self._clean_room, self._station_name)
       notebook_url = dbutils.jobs.taskValues.get(taskKey="Step1", key="notebook_url", default="")
       notebook_run_state = dbutils.jobs.taskValues.get(taskKey="Step1", key="notebook_run_state", default="")
       if notebook_url and notebook_run_state:
@@ -307,18 +315,30 @@ class CleanRoomClient:
         if ("result_state" in notebook_run_state and notebook_run_state["result_state"] != "SUCCESS"):
           print("Notebook run failed. Please inspect results.")
 
-  def _teardownStationHelper(self) -> None:
+  def _teardownStationHelper(self, clean_room: str, station_name: str) -> None:
+    print(f"Begin tearing down station {clean_room}.{station_name}")
     print("Tearing down station notebook job run")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_JOB_RUN)
+    self._rest_client.teardownStationResource(clean_room, station_name, Resource.NOTEBOOK_JOB_RUN)
     print("Tearing down station notebook")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK)
+    self._rest_client.teardownStationResource(clean_room, station_name, Resource.NOTEBOOK)
     print("Tearing down station notebook service principal")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_SERVICE_PRINCIPAL)
+    self._rest_client.teardownStationResource(clean_room, station_name, Resource.NOTEBOOK_SERVICE_PRINCIPAL)
     print("Tearing down station collaborator shares")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.COLLABORATOR_SHARES)
+    self._rest_client.teardownStationResource(clean_room, station_name, Resource.COLLABORATOR_SHARES)
     print("Tearing down station workspace")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.WORKSPACE)
+    self._rest_client.teardownStationResource(clean_room, station_name, Resource.WORKSPACE)
     print("Tearing down station metastore")
-    self._rest_client.teardownStationResource(self._clean_room, self._station_name, Resource.METASTORE)
-    print("Deleting station")
-    self._rest_client.deleteStation(self._clean_room, self._station_name)
+    self._rest_client.teardownStationResource(clean_room, station_name, Resource.METASTORE)
+    print(f"Deleting station")
+    self._rest_client.deleteStation(clean_room, station_name)
+    print(f"Finished tearing down station {clean_room}.{station_name}")
+
+  def teardownAllStations(self, clean_room: str):
+    stations = self._rest_client.listStations(clean_room)
+    print(f"Found {len(stations)} stations to tear down:")
+    for station in stations:
+      print(station["full_name"])
+    print()
+    for station in stations:
+      self._rest_client._teardownStationHelper(clean_room, station["name"])
+    print(f"Finished tearing down all stations")
