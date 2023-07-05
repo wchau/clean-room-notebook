@@ -198,7 +198,7 @@ class CleanRoomRestClient:
       params = {"clean_room_name": clean_room}
     )
     self._check_results(results)
-    return results.json()["clean_room_stations"]
+    return results.json().get("clean_room_stations", [])
 
 class CleanRoomClient:
   _clean_room: str
