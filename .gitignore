@@ -2,3 +2,5 @@ dist/
 *.egg-info/
 
 .databricks
+.vscode
+typings
