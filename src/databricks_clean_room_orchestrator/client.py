@@ -263,8 +263,6 @@ class CleanRoomClient:
     self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.METASTORE)
     print("Setting up station workspace")
     self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.WORKSPACE)
-    print("Setting up station collaborator shares")
-    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.COLLABORATOR_SHARES)
     print("Waiting for workspace to be provisioned...")
     while True:
       response = self._rest_client.getStationWorkspaceStatus(self._clean_room, self._station_name)
@@ -273,6 +271,8 @@ class CleanRoomClient:
       if (response["workspace_status"] != "PROVISIONING"):
         raise RuntimeError("Workspace could not be provisioned")
       time.sleep(10)
+    print("Setting up station collaborator shares")
+    self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.COLLABORATOR_SHARES)
     print("Setting up station notebook service principal")
     self._rest_client.setupStationResource(self._clean_room, self._station_name, Resource.NOTEBOOK_SERVICE_PRINCIPAL)
     print("Setting up station notebook")
