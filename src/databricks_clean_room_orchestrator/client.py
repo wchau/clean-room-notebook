@@ -20,12 +20,14 @@ class Resource(Enum):
 
 class CleanRoomRestClient:
   _workspace_url: Optional[str]
-  _auth_token: str
+  _auth_token: Optional[str]
   _headers: dict[str, str]
 
   def __init__(self):
     self._workspace_url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().getOrElse(None)
-    self._auth_token = dbutils.secrets.get(scope="clean_room", key="token")
+    self._auth_token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().getOrElse(None)
+    if (not self._workspace_url or not self._auth_token):
+      raise RuntimeError("Please run this in a UC shared cluster.")
     self._headers = {"Authorization":"Bearer {}".format(self._auth_token), "Accept":"application/json" }
 
   def _get(self, url: str, **kwargs) -> requests.Response:
@@ -236,7 +238,7 @@ class CleanRoomClient:
     if (not self._clean_room or not self._station_name):
       raise RuntimeError("Clean Room and Station Name must be non-empty")
 
-    # Also verifies that the secrets are properly set up
+    # Also verifies that the station was properly set up
     dbutils.jobs.taskValues.set(key="station_created", value=True)
     state, notebook_url = self._prepareAndRunNotebookHelper(
       notebook_collaborator, notebook_name, notebook_parameters, output_table_parameters)
